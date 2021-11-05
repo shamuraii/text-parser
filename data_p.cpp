@@ -12,14 +12,8 @@ using namespace std;
 
 const int NUM_CORES = 1;
 
+// Data structure to store words + their frequencies
 typedef unordered_map<string, unsigned> StrFreqMap;
-
-typedef struct thread_data {
-    string data_dir;
-    vector<string> file_names;
-    const char **delwords;
-    StrFreqMap freqs;
-} thread_data;
 
 void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
 StrFreqMap parseThread(string data_dir, vector<string> file_names, const char *delwords[]);
@@ -59,14 +53,18 @@ int main() {
     // Split the file_names vector into NUM_CORES parts
     vector<vector<string>> split_names = SplitVector(file_names, NUM_CORES);
 
+    // Create vector of futures to run asyncronously
     vector<future<StrFreqMap>> futures;
     for (int i = 0; i < NUM_CORES; i++) {
         // Create new future
         futures.push_back(async(parseThread, data_dir, split_names[i], delwords));
     }
+
+    // Loop through each future and await results before combining
     StrFreqMap freqmap;
     for (int i = 0; i < NUM_CORES; i++) {
         StrFreqMap freqs = futures[i].get();
+        // Loop through that thread's resulting map and combine with the main map
         for (auto it = freqs.begin(); it != freqs.end(); it++) {
             // Increment frequency if key exists, or add new key to map
             if (freqmap.count(it->first)) {
@@ -76,7 +74,8 @@ int main() {
             }
         }
     }
-    
+
+    // Generate output summary
     outputSummary(freqmap);
 
     return 0;
@@ -189,7 +188,7 @@ void outputSummary(StrFreqMap freqs) {
     outfile.close();
 }
 
-// Code from https://stackoverflow.com/questions/6861089/how-to-split-a-vector-into-n-almost-equal-parts
+// Function from https://stackoverflow.com/questions/6861089/how-to-split-a-vector-into-n-almost-equal-parts
 // Code is used to split a vector into n near-equal partitions
 template<typename T>
 std::vector<std::vector<T>> SplitVector(const std::vector<T>& vec, size_t n) {

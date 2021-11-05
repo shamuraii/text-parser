@@ -2,13 +2,13 @@
 #include <iostream>
 #include <fstream>
 #include <map>
-#include <pthread.h>
 #include <bits/stdc++.h>
 #include <string>
 #include <vector>
 
 using namespace std;
 
+// This is the data structure that will store key-val pairs of words and their frequency count
 typedef unordered_map<string, unsigned> StrFreqMap;
 
 void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
@@ -48,7 +48,6 @@ int main() {
     for (string fname : file_names) {
         string path = data_dir + (fname);
         ifstream inFile(path.c_str(), ios::in);
-        //cout << "Opening " << full << endl;
 
         // Check for successful open
         if (!inFile.is_open()) {
@@ -62,6 +61,7 @@ int main() {
         inFile.close();
     }
 
+    // Generate the output file
     outputSummary(freqs);
 
     return 0;
@@ -141,7 +141,7 @@ void outputSummary(StrFreqMap freqs) {
                         return l.second > r.second;
                     });
     
-    // Display the resulting top 10% and their frequencies
+    // Save the resulting top 10% and their frequencies
     outfile << "-----------------" << endl;
     for (auto p : top_ten) {
         outfile << p.first << " : " << p.second << endl;
