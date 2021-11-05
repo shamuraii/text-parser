@@ -1,15 +1,17 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <future>
 #include <map>
 #include <pthread.h>
 #include <bits/stdc++.h>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace std;
 
-#define NUM_CORES 8;
+const int NUM_CORES = 1;
 
 typedef unordered_map<string, unsigned> StrFreqMap;
 
@@ -21,10 +23,10 @@ typedef struct thread_data {
 } thread_data;
 
 void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
-
 void *parseThread(void *arg);
-
 void outputSummary(StrFreqMap freqs);
+template<typename T>
+std::vector<std::vector<T>> SplitVector(const std::vector<T>& vec, size_t n);
 
 int main() {
     string data_dir = "certdata/";
@@ -55,18 +57,46 @@ int main() {
         "a", "an", "the", "am", "is", "are", "was", "were", "being",
         "been", "seem", "become", "became", "to", "of", "in", "may", "and", "be", "on" };
 
-    pthread_t tid;
-    thread_data tdata;
-    tdata.data_dir = data_dir;
-    tdata.delwords = delwords;
-    tdata.file_names = file_names;
+    // Split the file_names vector into NUM_CORES parts
+    vector<vector<string>> split_names = SplitVector(file_names, NUM_CORES);
+    // Vector to store all thread ID's
+    vector<pthread_t> tids;
+    vector<thread_data> tdatas;
+    for (int i = 0; i < NUM_CORES; i++) {
+        // Create new pthread
+        pthread_t tid;
+        tids.push_back(tid);
+        
+        // Create new thread data structure
+        thread_data tdata;
+        tdatas.push_back(tdata);
+        tdata.data_dir = data_dir;
+        tdata.delwords = delwords;
+        // Pass thread its portion of the file_names to run on
+        tdata.file_names = split_names[i];
 
-    pthread_create(&tid, NULL, parseThread, (void *)&tdata);
-    pthread_join(tid, NULL);
+        // Instantiate thread and pass parameters via tdata structure
+        pthread_create(&tid, NULL, parseThread, (void *)&tdata);
+    }
 
-    StrFreqMap freqs = tdata.freqs;
+    StrFreqMap freqmap;
+    for (int i = 0; i < NUM_CORES; i++) {
+        // Join the thread
+        pthread_join(tids[i], NULL);
 
-    outputSummary(freqs);
+        // Combine results to freqs map
+        StrFreqMap freqs = tdatas[i].freqs;
+        for (auto it = freqs.begin(); it != freqs.end(); it++) {
+            // Increment frequency if key exists, or add new key to map
+            if (freqmap.count(it->first)) {
+                freqmap.at(it->first) += it->second;
+            } else {
+                freqmap.insert({{it->first, it->second}});
+            }
+        }
+    }
+
+    outputSummary(freqmap);
 
     return 0;
 }
@@ -177,4 +207,28 @@ void outputSummary(StrFreqMap freqs) {
 
     //close outfile
     outfile.close();
+}
+
+// Code from https://stackoverflow.com/questions/6861089/how-to-split-a-vector-into-n-almost-equal-parts
+// Code is used to split a vector into n near-equal partitions
+template<typename T>
+std::vector<std::vector<T>> SplitVector(const std::vector<T>& vec, size_t n) {
+    std::vector<std::vector<T>> outVec;
+
+    size_t length = vec.size() / n;
+    size_t remain = vec.size() % n;
+
+    size_t begin = 0;
+    size_t end = 0;
+
+    for (size_t i = 0; i < std::min(n, vec.size()); ++i)
+    {
+        end += (remain > 0) ? (length + !!(remain--)) : length;
+
+        outVec.push_back(std::vector<T>(vec.begin() + begin, vec.begin() + end));
+
+        begin = end;
+    }
+
+    return outVec;
 }
