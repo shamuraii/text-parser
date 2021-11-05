@@ -3,7 +3,6 @@
 #include <fstream>
 #include <future>
 #include <map>
-#include <pthread.h>
 #include <bits/stdc++.h>
 #include <string>
 #include <thread>
@@ -23,7 +22,7 @@ typedef struct thread_data {
 } thread_data;
 
 void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
-void *parseThread(void *arg);
+StrFreqMap parseThread(string data_dir, vector<string> file_names, const char *delwords[]);
 void outputSummary(StrFreqMap freqs);
 template<typename T>
 std::vector<std::vector<T>> SplitVector(const std::vector<T>& vec, size_t n);
@@ -59,33 +58,15 @@ int main() {
 
     // Split the file_names vector into NUM_CORES parts
     vector<vector<string>> split_names = SplitVector(file_names, NUM_CORES);
-    // Vector to store all thread ID's
-    vector<pthread_t> tids;
-    vector<thread_data> tdatas;
+
+    vector<future<StrFreqMap>> futures;
     for (int i = 0; i < NUM_CORES; i++) {
-        // Create new pthread
-        pthread_t tid;
-        tids.push_back(tid);
-        
-        // Create new thread data structure
-        thread_data tdata;
-        tdatas.push_back(tdata);
-        tdata.data_dir = data_dir;
-        tdata.delwords = delwords;
-        // Pass thread its portion of the file_names to run on
-        tdata.file_names = split_names[i];
-
-        // Instantiate thread and pass parameters via tdata structure
-        pthread_create(&tid, NULL, parseThread, (void *)&tdata);
+        // Create new future
+        futures.push_back(async(parseThread, data_dir, split_names[i], delwords));
     }
-
     StrFreqMap freqmap;
     for (int i = 0; i < NUM_CORES; i++) {
-        // Join the thread
-        pthread_join(tids[i], NULL);
-
-        // Combine results to freqs map
-        StrFreqMap freqs = tdatas[i].freqs;
+        StrFreqMap freqs = futures[i].get();
         for (auto it = freqs.begin(); it != freqs.end(); it++) {
             // Increment frequency if key exists, or add new key to map
             if (freqmap.count(it->first)) {
@@ -95,7 +76,7 @@ int main() {
             }
         }
     }
-
+    
     outputSummary(freqmap);
 
     return 0;
@@ -153,13 +134,12 @@ void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[20]) {
     }
 }
 
-void *parseThread(void *arg) {
-    // Loop through each filename
-    thread_data *tdata = (thread_data *)arg;
+StrFreqMap parseThread(string data_dir, vector<string> file_names, const char *delwords[]) {
+    StrFreqMap freqs;
 
     // Loop through each filename
-    for (string fname : tdata->file_names) {
-        string path = tdata->data_dir + (fname);
+    for (string fname : file_names) {
+        string path = data_dir + (fname);
         ifstream inFile(path.c_str(), ios::in);
 
         // Check for successful open
@@ -169,12 +149,12 @@ void *parseThread(void *arg) {
         }
         
         // Pass the file, frequency map, and noise words to function
-        countWords(inFile, tdata->freqs, tdata->delwords);
+        countWords(inFile, freqs, delwords);
 
         inFile.close();
     }
 
-    pthread_exit(NULL);
+    return freqs;
 }
 
 void outputSummary(StrFreqMap freqs) {
