@@ -15,8 +15,8 @@ void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
 
 int main()
 {
-    string data_dir = ".\\certdata\\";
-    string file_name = ".\\file_names.txt";
+    string data_dir = "./certdata/";
+    string file_name = "./file_names.txt";
     vector<string> file_names;
 
     // List of noise words to delete from list
@@ -33,24 +33,23 @@ int main()
         getline(names_file, line);
 
         if (!line.empty()) {
-            string full_name = data_dir + line;
-            file_names.push_back(full_name);
+            file_names.push_back(line);
         }
     }
 
     // Loop through each filename
     StrFreqMap freqs;
-    for (string fname : file_names) {
+    for (string short_name : file_names) {
         // Load the current file
-        ifstream inFile;
-        inFile.open(fname);
-
+        string fname = data_dir + short_name;
+        ifstream inFile(fname.c_str(), ios::in);
+        
         // Check for successful open
         if (!inFile.is_open()) {
             cout << fname << " failed to open..." << endl << flush;
-            break;
+            continue;
         }
-        
+
         // Pass the file, frequency map, and noise words to function
         countWords(inFile, freqs, delwords);
 
