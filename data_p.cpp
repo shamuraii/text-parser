@@ -10,7 +10,7 @@
 
 using namespace std;
 
-const int NUM_CORES = 1;
+const int NUM_CORES = 8;
 
 // Data structure to store words + their frequencies
 typedef unordered_map<string, unsigned> StrFreqMap;
