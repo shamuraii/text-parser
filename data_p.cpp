@@ -13,10 +13,17 @@ namespace fs = std::filesystem;
 
 typedef unordered_map<string, unsigned> StrFreqMap;
 
+typedef struct thread_data {
+    vector<string> file_names;
+    const char **delwords;
+    StrFreqMap freqs;
+} thread_data;
+
 void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
 
-int main()
-{
+void *parseThread(void *arg);
+
+int main() {
     string data_dir = ".\\certdata";
     vector<string> file_names;
 
@@ -31,24 +38,15 @@ int main()
         file_names.push_back(entry.path().string());
     }
 
-    // Loop through each filename
-    StrFreqMap freqs;
-    for (string fname : file_names) {
-        // Load the current file
-        ifstream inFile;
-        inFile.open(fname);
+    pthread_t tid;
+    thread_data tdata;
+    tdata.delwords = delwords;
+    tdata.file_names = file_names;
 
-        // Check for successful open
-        if (!inFile.is_open()) {
-            cout << fname << " failed to open..." << endl << flush;
-            break;
-        }
-        
-        // Pass the file, frequency map, and noise words to function
-        countWords(inFile, freqs, delwords);
+    pthread_create(&tid, NULL, parseThread, (void *)&tdata);
+    pthread_join(tid, NULL);
 
-        inFile.close();
-    }
+    StrFreqMap freqs = tdata.freqs;
 
     // Calculate what 10% of the total count is for keeping
     size_t keep_count = freqs.size() * 0.1;
@@ -126,4 +124,27 @@ void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[20]) {
             freqmap.erase(key);
         }
     }
+}
+
+void *parseThread(void *arg) {
+    // Loop through each filename
+    thread_data *tdata = (thread_data *)arg;
+
+    for (string fname : tdata->file_names) {
+        // Load the current file
+        ifstream inFile;
+        inFile.open(fname);
+
+        // Check for successful open
+        if (!inFile.is_open()) {
+            cout << fname << " failed to open..." << endl << flush;
+            break;
+        }
+        
+        // Pass the file, frequency map, and noise words to function
+        countWords(inFile, tdata->freqs, tdata->delwords);
+
+        inFile.close();
+    }
+    pthread_exit(NULL);
 }
