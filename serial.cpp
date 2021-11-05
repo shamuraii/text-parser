@@ -15,41 +15,47 @@ void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
 
 int main()
 {
-    string data_dir = "./certdata/";
-    string file_name = "./file_names.txt";
-    vector<string> file_names;
+    string data_dir = "certdata/";
+    vector<string> file_names =  {
+	    "2013-01-08.txt","2013-01-09.txt","2013-01-11.txt","2013-01-10.txt",
+        "2013-01-25.txt","2013-01-28.txt","2013-01-29.txt","2013-02-01.txt",
+        "2013-02-07.txt","2013-02-14.txt","2013-02-22.txt","2013-03-05.txt",
+        "2013-03-08.txt","2013-03-11.txt","2013-03-18.txt","2013-03-20.txt",
+        "2013-03-21.txt","2013-04-03.txt","2013-04-05.txt","2013-04-02.txt",
+        "2013-04-08.txt","2013-04-10.txt","2013-04-15.txt","2013-04-19.txt",
+        "2013-04-25.txt","2013-04-26.txt","2013-04-29.txt","2013-04-30.txt",
+        "2013-05-06.txt","2013-05-14.txt","2013-05-15.txt","2013-05-17.txt",
+        "2013-06-05.txt","2013-06-07.txt","2013-06-10.txt","2013-06-11.txt",
+        "2013-06-18.txt","2013-06-26.txt","2013-06-27.txt","2013-06-28.txt",
+        "2013-07-12.txt","2013-07-15.txt","2013-07-26.txt","2013-08-01.txt",
+        "2013-08-02.txt","2013-08-05.txt","2013-08-15.txt","2013-08-21.txt",
+        "2013-08-23.txt","2013-08-26.txt","2013-08-30.txt","2013-09-03.txt",
+        "2013-09-04.txt","2013-09-13.txt","2013-09-23.txt","2013-09-24.txt",
+        "2013-10-01.txt","2013-10-04.txt","2013-10-10.txt","2013-10-15.txt",
+        "2013-10-16.txt","2013-10-17.txt","2013-10-18.txt","2013-10-22.txt",
+        "2013-10-25.txt","2013-10-28.txt","2013-10-30.txt","2013-10-31.txt",
+        "2013-11-04.txt","2013-11-07.txt","2013-11-14.txt","2013-11-18.txt",
+        "2013-11-22.txt","2013-12-02.txt","2013-12-03.txt","2013-12-05.txt",
+        "2013-12-12.txt","2013-12-30.txt" };
 
     // List of noise words to delete from list
     const char *delwords[20] = {
         "a", "an", "the", "am", "is", "are", "was", "were", "being",
         "been", "seem", "become", "became", "to", "of", "in", "may", "and", "be", "on" };
 
-    // Load file_names.txt which contains list of all file names
-    ifstream names_file;
-    names_file.open(file_name);
-    while (names_file) {
-        string line;
-        // read the line
-        getline(names_file, line);
-
-        if (!line.empty()) {
-            file_names.push_back(line);
-        }
-    }
-
     // Loop through each filename
     StrFreqMap freqs;
-    for (string short_name : file_names) {
-        // Load the current file
-        string fname = data_dir + short_name;
-        ifstream inFile(fname.c_str(), ios::in);
-        
+    for (string fname : file_names) {
+        string path = data_dir + (fname);
+        ifstream inFile(path.c_str(), ios::in);
+        //cout << "Opening " << full << endl;
+
         // Check for successful open
         if (!inFile.is_open()) {
             cout << fname << " failed to open..." << endl << flush;
             continue;
         }
-
+        
         // Pass the file, frequency map, and noise words to function
         countWords(inFile, freqs, delwords);
 
