@@ -12,9 +12,9 @@ using namespace std;
 typedef unordered_map<string, unsigned> StrFreqMap;
 
 void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
+void outputSummary(StrFreqMap freqs);
 
-int main()
-{
+int main() {
     string data_dir = "certdata/";
     vector<string> file_names =  {
 	    "2013-01-08.txt","2013-01-09.txt","2013-01-11.txt","2013-01-10.txt",
@@ -62,28 +62,7 @@ int main()
         inFile.close();
     }
 
-    // Calculate what 10% of the total count is for keeping
-    size_t keep_count = freqs.size() * 0.1;
-    cout << "Keeping " << keep_count << " words." << endl;
-
-    // https://stackoverflow.com/questions/17963905/how-can-i-get-the-top-n-keys-of-stdmap-based-on-their-values
-    // Use partial_sort_copy to extract the top *keep_count* values from the frequency map
-    vector<pair<string, unsigned>> top_ten(keep_count);
-    partial_sort_copy(freqs.begin(),
-                    freqs.end(),
-                    top_ten.begin(),
-                    top_ten.end(),
-                    [](pair<const string, unsigned> const& l,
-                       pair<const string, unsigned> const& r)
-                    {
-                        return l.second > r.second;
-                    });
-    
-    // Display the resulting top 10% and their frequencies
-    cout << "-----------------" << endl;
-    for (auto p : top_ten) {
-        cout << p.first << " : " << p.second << endl;
-    }
+    outputSummary(freqs);
 
     return 0;
 }
@@ -138,4 +117,36 @@ void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[20]) {
             freqmap.erase(key);
         }
     }
+}
+
+void outputSummary(StrFreqMap freqs) {
+    //declare and open output file
+    ofstream outfile;
+    outfile.open("serial_results.txt");
+
+    // Calculate what 10% of the total count is for keeping
+    size_t keep_count = freqs.size() * 0.1;
+    outfile << "Keeping " << keep_count << " words." << endl;
+
+    // https://stackoverflow.com/questions/17963905/how-can-i-get-the-top-n-keys-of-stdmap-based-on-their-values
+    // Use partial_sort_copy to extract the top *keep_count* values from the frequency map
+    vector<pair<string, unsigned>> top_ten(keep_count);
+    partial_sort_copy(freqs.begin(),
+                    freqs.end(),
+                    top_ten.begin(),
+                    top_ten.end(),
+                    [](pair<const string, unsigned> const& l,
+                       pair<const string, unsigned> const& r)
+                    {
+                        return l.second > r.second;
+                    });
+    
+    // Display the resulting top 10% and their frequencies
+    outfile << "-----------------" << endl;
+    for (auto p : top_ten) {
+        outfile << p.first << " : " << p.second << endl;
+    }
+
+    //close outfile
+    outfile.close();
 }
