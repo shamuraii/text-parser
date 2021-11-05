@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-#include <filesystem>
 #include <map>
 #include <pthread.h>
 #include <bits/stdc++.h>
@@ -9,7 +8,6 @@
 #include <vector>
 
 using namespace std;
-namespace fs = std::filesystem;
 
 typedef unordered_map<string, unsigned> StrFreqMap;
 
@@ -17,7 +15,8 @@ void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
 
 int main()
 {
-    string data_dir = ".\\certdata";
+    string data_dir = ".\\certdata\\";
+    string file_name = ".\\file_names.txt";
     vector<string> file_names;
 
     // List of noise words to delete from list
@@ -25,10 +24,18 @@ int main()
         "a", "an", "the", "am", "is", "are", "was", "were", "being",
         "been", "seem", "become", "became", "to", "of", "in", "may", "and", "be", "on" };
 
-    // Help from https://stackoverflow.com/questions/612097/how-can-i-get-the-list-of-files-in-a-directory-using-c-or-c
-    // Create a list of each file in the certdata folder
-    for (const auto & entry : fs::directory_iterator(data_dir)) {
-        file_names.push_back(entry.path().string());
+    // Load file_names.txt which contains list of all file names
+    ifstream names_file;
+    names_file.open(file_name);
+    while (names_file) {
+        string line;
+        // read the line
+        getline(names_file, line);
+
+        if (!line.empty()) {
+            string full_name = data_dir + line;
+            file_names.push_back(full_name);
+        }
     }
 
     // Loop through each filename
