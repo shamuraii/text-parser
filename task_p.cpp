@@ -14,19 +14,15 @@ This Task Parallel version of the program is inspired by the code posted in
 https://towardsdatascience.com/how-to-build-a-multi-threaded-pipeline-in-c-with-std-async-78edc19e862d
 
 The general idea is to call functions with async that are passed the futures of functions
-before them in the pipeline to ensure data is passed before execution.
+before them in the pipeline to ensure data is ready before execution continues.
 */
-
-const int NUM_CORES = 8;
 
 // Data structure to store words + their frequencies
 typedef unordered_map<string, unsigned> StrFreqMap;
 
-void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
-StrFreqMap parseThread(string data_dir, vector<string> file_names, const char *delwords[]);
+StrFreqMap stage1(string path);
+StrFreqMap stage2(future<StrFreqMap> &&prev_stage_results, const char *delwords[20]);
 void outputSummary(StrFreqMap freqs);
-template<typename T>
-std::vector<std::vector<T>> SplitVector(const std::vector<T>& vec, size_t n);
 
 int main() {
     string data_dir = "certdata/";
@@ -57,21 +53,21 @@ int main() {
         "a", "an", "the", "am", "is", "are", "was", "were", "being",
         "been", "seem", "become", "became", "to", "of", "in", "may", "and", "be", "on" };
 
-    // Split the file_names vector into NUM_CORES parts
-    vector<vector<string>> split_names = SplitVector(file_names, NUM_CORES);
-
-    // Create vector of futures to run asyncronously
-    vector<future<StrFreqMap>> futures;
-    for (int i = 0; i < NUM_CORES; i++) {
-        // Create new future
-        futures.push_back(async(parseThread, data_dir, split_names[i], delwords));
-    }
-
-    // Loop through each future and await results before combining
+    // Loop through each filename, sending them through the pipeline
     StrFreqMap freqmap;
-    for (int i = 0; i < NUM_CORES; i++) {
-        StrFreqMap freqs = futures[i].get();
-        // Loop through that thread's resulting map and combine with the main map
+    for (string fname : file_names) {
+        string path = data_dir + (fname);
+        
+
+        // Create thread for stage1 and save its future
+        future<StrFreqMap> future1 = async(stage1, path);
+        // Create thread for stage2 and pass it future1, and save its future
+        future<StrFreqMap> future2 = async(stage2, move(future1), delwords);
+
+        // Get the result from future2 to combine in main
+        StrFreqMap freqs = future2.get();
+
+        // Loop through the resulting map and combine with the main map
         for (auto it = freqs.begin(); it != freqs.end(); it++) {
             // Increment frequency if key exists, or add new key to map
             if (freqmap.count(it->first)) {
@@ -88,9 +84,20 @@ int main() {
     return 0;
 }
 
-void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[20]) {
+StrFreqMap stage1(string path) {
+    
     // MUCH INSPIRED BY CODE POSTED ON DISCUSSION BOARD
     string words, lowwords;
+    StrFreqMap freqmap;
+
+    // Open the provided file
+    ifstream in(path.c_str(), ios::in);
+
+    // Check for successful open
+    if (!in.is_open()) {
+        cout << path << " failed to open..." << endl << flush;
+        return freqmap;
+    }
 
     while (in) {
         // read the line
@@ -121,46 +128,33 @@ void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[20]) {
             // Get next word
             token = strtok(NULL, " ");
         }
-
-        // Iterate through map, looking for delwords to remove
-        vector<string> erase_list;
-        for (auto it = freqmap.begin(); it != freqmap.end(); it++) {
-            for (int i=0;i<20;i++) {
-                // Save key for removal
-                if (!it->first.compare(delwords[i])) {
-                    erase_list.push_back(it->first);
-                    break;
-                }
-            }
-        }
-        // Remove all keys that are delwords
-        for (auto key : erase_list) {
-            freqmap.erase(key);
-        }
     }
+    in.close();
+
+    return freqmap;
 }
 
-StrFreqMap parseThread(string data_dir, vector<string> file_names, const char *delwords[]) {
-    StrFreqMap freqs;
+StrFreqMap stage2(future<StrFreqMap> &&prev_stage_results, const char *delwords[20]) {
+    // Ensure the previous stage has completed
+    StrFreqMap freqmap = prev_stage_results.get();
 
-    // Loop through each filename
-    for (string fname : file_names) {
-        string path = data_dir + (fname);
-        ifstream inFile(path.c_str(), ios::in);
-
-        // Check for successful open
-        if (!inFile.is_open()) {
-            cout << fname << " failed to open..." << endl << flush;
-            continue;
+    // Iterate through map, looking for delwords to remove
+    vector<string> erase_list;
+    for (auto it = freqmap.begin(); it != freqmap.end(); it++) {
+        for (int i=0;i<20;i++) {
+            // Save key for removal
+            if (!it->first.compare(delwords[i])) {
+                erase_list.push_back(it->first);
+                break;
+            }
         }
-        
-        // Pass the file, frequency map, and noise words to function
-        countWords(inFile, freqs, delwords);
-
-        inFile.close();
     }
-
-    return freqs;
+    // Remove all keys that are delwords
+    for (auto key : erase_list) {
+        freqmap.erase(key);
+    }
+    
+    return freqmap;
 }
 
 void outputSummary(StrFreqMap freqs) {
@@ -193,28 +187,4 @@ void outputSummary(StrFreqMap freqs) {
 
     //close outfile
     outfile.close();
-}
-
-// Function from https://stackoverflow.com/questions/6861089/how-to-split-a-vector-into-n-almost-equal-parts
-// Code is used to split a vector into n near-equal partitions
-template<typename T>
-std::vector<std::vector<T>> SplitVector(const std::vector<T>& vec, size_t n) {
-    std::vector<std::vector<T>> outVec;
-
-    size_t length = vec.size() / n;
-    size_t remain = vec.size() % n;
-
-    size_t begin = 0;
-    size_t end = 0;
-
-    for (size_t i = 0; i < std::min(n, vec.size()); ++i)
-    {
-        end += (remain > 0) ? (length + !!(remain--)) : length;
-
-        outVec.push_back(std::vector<T>(vec.begin() + begin, vec.begin() + end));
-
-        begin = end;
-    }
-
-    return outVec;
 }
