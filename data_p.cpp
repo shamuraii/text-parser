@@ -10,9 +10,12 @@
 
 using namespace std;
 
+// This constant controls how many threads are created and ran concurrently
+// I chose 8 since the server has 8 cores available
 const int NUM_CORES = 8;
 
 // Data structure to store words + their frequencies
+// unordered_map has O(1) average lookup
 typedef unordered_map<string, unsigned> StrFreqMap;
 
 void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[]);
@@ -50,20 +53,23 @@ int main() {
         "a", "an", "the", "am", "is", "are", "was", "were", "being",
         "been", "seem", "become", "became", "to", "of", "in", "may", "and", "be", "on" };
 
-    // Split the file_names vector into NUM_CORES parts
+    // Split the file_names vector into NUM_CORES subgroups
     vector<vector<string>> split_names = SplitVector(file_names, NUM_CORES);
 
-    // Create vector of futures to run asyncronously
+    // Create vector of NUM_CORES futures to run asyncronously
     vector<future<StrFreqMap>> futures;
     for (int i = 0; i < NUM_CORES; i++) {
-        // Create new future
+        // Create new future/thread and add to vector
+        // I used c++11 threads since they are a bit more abstracted than p_threads and I found them easier to handle
         futures.push_back(async(parseThread, data_dir, split_names[i], delwords));
     }
 
     // Loop through each future and await results before combining
     StrFreqMap freqmap;
     for (int i = 0; i < NUM_CORES; i++) {
+        // future.get() blocks until the thread's result ready
         StrFreqMap freqs = futures[i].get();
+
         // Loop through that thread's resulting map and combine with the main map
         for (auto it = freqs.begin(); it != freqs.end(); it++) {
             // Increment frequency if key exists, or add new key to map
@@ -136,7 +142,7 @@ void countWords(ifstream &in, StrFreqMap &freqmap, const char *delwords[20]) {
 StrFreqMap parseThread(string data_dir, vector<string> file_names, const char *delwords[]) {
     StrFreqMap freqs;
 
-    // Loop through each filename
+    // Loop through each filename provided
     for (string fname : file_names) {
         string path = data_dir + (fname);
         ifstream inFile(path.c_str(), ios::in);
